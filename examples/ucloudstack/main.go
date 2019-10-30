@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/ucloud/ucloud-sdk-go/services/ucloudstack"
 	"github.com/ucloud/ucloud-sdk-go/ucloud"
@@ -11,22 +10,29 @@ import (
 
 func loadUcloudStackConfig() (*ucloud.Config, *auth.Credential) {
 	cfg := ucloud.NewConfig()
-	cfg.BaseUrl = "http://console.pre.ucloudstack.com/api"
+	cfg.BaseUrl = "http://console.dev.ucloudstack.com/api"
 
 	credential := auth.NewCredential()
-	credential.PrivateKey = os.Getenv("UCLOUDSTACK_PRIVATE_KEY")
-	credential.PublicKey = os.Getenv("UCLOUDSTACK_PUBLIC_KEY")
+	credential.PrivateKey = "gqwtkueCBF6fCPxstu5AvuFgZ-Eid92InCh7cIBkLiFHp7RsJsTIxTXUjb10krxb"
+	credential.PublicKey = "1c64Ps3wN53H8MwjWub5euxIOGRIwKkVnm899FAw"
 
 	return &cfg, &credential
 }
 
 func main() {
 
-	// createVM("my-first-vm")
+	// for i := 0; i < 60; i++ {
+	// 	createVM("my-vm-" + strconv.Itoa(i+1))
+	// }
 
 	// stopVM("vm-uGvOT3TZg")
+	// stopAllVM(10)
 
 	// deleteVM("vm-lxK-oqTZg")
+	// deleteAllVM(100)
+
+	// terminateResource("dddd")
+	terminateAllResource(100)
 
 	// describeVM()
 
@@ -48,15 +54,15 @@ func createVM(name string) {
 	createReq.Zone = ucloud.String("zone-01")
 	// 配置
 	createReq.ImageID = ucloud.String("cn-image-centos-74")
-	createReq.CPU = ucloud.Int(2)
-	createReq.Memory = ucloud.Int(4096)
+	createReq.CPU = ucloud.Int(1)
+	createReq.Memory = ucloud.Int(2048)
 	createReq.BootDiskType = ucloud.String("Normal")
 	createReq.DataDiskType = ucloud.String("Normal")
 	createReq.VMType = ucloud.String("Normal")
 	// 网络
-	createReq.VPCID = ucloud.String("vpc-1al_S_tbN")
-	createReq.SubnetID = ucloud.String("subnet-1al_S_tbN")
-	createReq.WANSGID = ucloud.String("sg-1al_S_tbN")
+	createReq.VPCID = ucloud.String("vpc-Ci9vkUVpm")
+	createReq.SubnetID = ucloud.String("subnet-Ci9vkUVpm")
+	createReq.WANSGID = ucloud.String("sg-Ci9vkUVpm")
 	// 认证方式
 	createReq.Name = ucloud.String(name)
 	createReq.Password = ucloud.String("ucloud.cn132")
@@ -123,6 +129,30 @@ func deleteVM(vmID string) {
 
 }
 
+func terminateResource(resourceID string) {
+
+	// 认证
+	cfg, credential := loadUcloudStackConfig()
+	ucloudstackClient := ucloudstack.NewClient(cfg, credential)
+
+	// delete request
+	terminateReq := ucloudstackClient.NewTerminateResourceRequest()
+	terminateReq.Region = ucloud.String("cn")
+	terminateReq.Zone = ucloud.String("zone-01")
+	terminateReq.ResourceID = ucloud.String(resourceID)
+
+	// send request
+	delResp, err := ucloudstackClient.TerminateResource(terminateReq)
+	if err != nil {
+		fmt.Printf("something bad happened: %s\n", err)
+	}
+
+	if delResp != nil {
+		fmt.Printf("RetCode: %d\n", delResp.RetCode)
+	}
+
+}
+
 func describeVM() {
 
 	// 认证
@@ -143,6 +173,106 @@ func describeVM() {
 
 	if descResp.TotalCount > 0 {
 		fmt.Printf("fisrt of VMs: %s\n", descResp.Infos[0].VMID)
+	}
+
+}
+
+func stopAllVM(n int) {
+	if n == 0 {
+		return
+	}
+
+	// 认证
+	cfg, credential := loadUcloudStackConfig()
+	ucloudstackClient := ucloudstack.NewClient(cfg, credential)
+
+	// describe Request
+	describeReq := ucloudstackClient.NewDescribeVMInstanceRequest()
+	describeReq.Region = ucloud.String("cn")
+	describeReq.Zone = ucloud.String("zone-01")
+	if n > 0 { // 负数表示all
+		describeReq.Limit = ucloud.Int(n)
+	}
+
+	// send request
+	descResp, err := ucloudstackClient.DescribeVMInstance(describeReq)
+	if err != nil {
+		fmt.Printf("something bad happened: %s\n", err)
+	}
+
+	if descResp.TotalCount > 0 {
+		for _, info := range descResp.Infos {
+			if info.State == "Running" {
+				stopVM(info.VMID)
+				fmt.Printf("stop vm: %s\n", info.VMID)
+			}
+		}
+	}
+
+}
+
+func deleteAllVM(n int) {
+	if n == 0 {
+		return
+	}
+
+	// 认证
+	cfg, credential := loadUcloudStackConfig()
+	ucloudstackClient := ucloudstack.NewClient(cfg, credential)
+
+	// describe Request
+	describeReq := ucloudstackClient.NewDescribeVMInstanceRequest()
+	describeReq.Region = ucloud.String("cn")
+	describeReq.Zone = ucloud.String("zone-01")
+	if n > 0 { // 负数表示all
+		describeReq.Limit = ucloud.Int(n)
+	}
+
+	// send request
+	descResp, err := ucloudstackClient.DescribeVMInstance(describeReq)
+	if err != nil {
+		fmt.Printf("something bad happened: %s\n", err)
+	}
+
+	if descResp.TotalCount > 0 {
+		for _, info := range descResp.Infos {
+			if info.State == "Stopped" {
+				deleteVM(info.VMID)
+				fmt.Printf("delete vm: %s\n", info.VMID)
+			}
+		}
+	}
+
+}
+
+func terminateAllResource(n int) {
+	if n == 0 {
+		return
+	}
+
+	// 认证
+	cfg, credential := loadUcloudStackConfig()
+	ucloudstackClient := ucloudstack.NewClient(cfg, credential)
+
+	// describe Request
+	describeReq := ucloudstackClient.NewDescribeRecycledResourceRequest()
+	describeReq.Region = ucloud.String("cn")
+	describeReq.Zone = ucloud.String("zone-01")
+	if n > 0 { // 负数表示all
+		describeReq.Limit = ucloud.Int(n)
+	}
+
+	// send request
+	descResp, err := ucloudstackClient.DescribeRecycledResource(describeReq)
+	if err != nil {
+		fmt.Printf("something bad happened: %s\n", err)
+	}
+
+	if descResp.TotalCount > 0 {
+		for _, info := range descResp.Infos {
+			terminateResource(info.ResourceID)
+			fmt.Printf("terminate resource(status=%d): %s\n", info.Status, info.ResourceID)
+		}
 	}
 
 }
